@@ -621,6 +621,8 @@ def basic_sample():
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
 
+import spiders.coles
+
 if __name__ == "__main__":
     logger.init()
     # logger.debug("main START")
@@ -642,7 +644,10 @@ if __name__ == "__main__":
     # baidu_xiyouji()
     # m3u8_sample()
     # selenium()
-    selenium_quiet()
+    # selenium_quiet()
+
+    spiders.coles.specials()
+
     # logger.warn("Hello, world")
 
     # test2.f()
