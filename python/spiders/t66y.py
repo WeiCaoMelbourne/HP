@@ -7,7 +7,8 @@ headers = {
 }
 
 def main():
-    url = "https://t66y.com/htm_data/1404/20/999224.html"
+    # url = "https://t66y.com/htm_data/1404/20/999224.html"   
+    url = "https://t66y.com/htm_data/2107/20/4619921.html"
     domain = "https://t66y.com/"
     title = None
     author = None
@@ -26,13 +27,15 @@ def main():
             sub_div.decompose()
 
         content = content_el.text.strip()
+        
         content = content.replace("　　", "\r\n")
-
+        content = content.replace("    ", "\r\n") 
+        
         with open(f"{title}.txt", mode="a", encoding="utf-8") as file:
             # Write the string to the file
             file.write("\r\n" + content)
 
-    
+
     def page_download(page_url):
         print(page_url)
         nonlocal title, author
@@ -48,12 +51,11 @@ def main():
                 
                 if not title:
                     title_el = page.find("title").text
-                    title = title_el.split('-')[0].strip()
+                    title = title_el.split('- 成')[0].strip()
                     try:
                         os.remove(f"{title}.txt")
                     except OSError:
                         pass
-                    title = 1   # TODO 
 
                 divs = page.find_all("div", attrs={
                     "class": "t t2"
