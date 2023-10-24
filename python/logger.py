@@ -11,7 +11,7 @@ def init():
     if logger:
         return
     
-    logger = logging.getLogger('om5k_sys_tool') 
+    logger = logging.getLogger(__name__) 
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(original_file)s:%(original_line)d | %(message)s', '%Y-%m-%d %H:%M:%S')
     # formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(filename)s:%(lineno)d | %(message)s', '%Y-%m-%d %H:%M:%S')
@@ -47,25 +47,35 @@ def rotate_debug_files(directory_path=DEBUG_FOLDER):
                 os.remove(file_path)
 
 def _pre_debug():
-    if not logger:
-        init()
-
-    frame = sys._getframe(1)
+    frame = sys._getframe(2)    # use 2 because _pre_debug() is 0, 
     filename = os.path.basename(frame.f_code.co_filename)
+    print(filename)
     lineno = frame.f_lineno
     return {'original_file': filename, 'original_line': lineno}
 
 def debug(str):
+    # if not logger:
+    #     init()
+
     logger.debug(str, extra=_pre_debug())
 
 def info(str):
+    if not logger:
+        init()
+    
     logger.info(str, extra=_pre_debug())
 
 def warn(str):
+    if not logger:
+        init()
     logger.warn(str, extra=_pre_debug())
 
 def error(str):
+    if not logger:
+        init()
     logger.error(str, extra=_pre_debug())
 
 def critical(str):
+    if not logger:
+        init()
     logger.critical(str, extra=_pre_debug())
