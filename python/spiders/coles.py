@@ -5,12 +5,17 @@ import asyncio
 import re
 import os
 from datetime import datetime
+import csv
 
 domain = "https://www.coles.com.au"
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36'
 }
-sub_folder = None
+# date_str = None
+
+# csv format
+# cmpy, prod_id, name, brand, size, desc, aisle, catetory, sub-category, price, was, desc, img_url
+csv_path = None
 
 # In specials, when it is div and class is product__title_area, then it is a promoption
 # For promoptions, it uses 2 requests:
@@ -22,7 +27,7 @@ sub_folder = None
 #       TODO: where productIds come from
 #       the productIds probabally directly from the url www.coles.com.au/promotions/mortein?pid=ctatile(specials)_rbhome_br360_5009899515
 #       its source code has a "products":["3573557","4448029","3849115"...] 
-def promotions(url):
+def promotions(url, csvwriter):
     print(f"promotions START. storeId:{url}")
 
     # catetory_url = f"https://www.coles.com.au/api/bff/products/categories?storeId={storeId}"
@@ -59,10 +64,34 @@ def promotions(url):
                 # print(product_results)
                 for product in product_results:
                     # print(product)
+                    
                     try:
                         id = product['id']
                         price = product['pricing']['now']
-                        was = product['pricing']['was']
+                        try:
+                            was = product['pricing']['was']
+                        except:
+                            was = ''
+
+                        try:
+                            size = product['size']
+                        except:
+                            size = ''
+                        
+                        try:
+                            aisle = product['onlineHeirs']['aisle']
+                        except:
+                            aisle = ''
+
+                        try:
+                            category = product['onlineHeirs']['category']
+                        except:
+                            category = ''
+
+                        try:
+                            sub_category = product['onlineHeirs']['subCategory']
+                        except:
+                            sub_category = ''
                         
                         try:
                             discount = product['pricing']['savePercent']
@@ -79,8 +108,11 @@ def promotions(url):
                             img_url = f"https://productimages.coles.com.au/productimages{img}?w=200"
                             img_name = img_url.split("?")[0].split("/")[-1]
 
-                            # print(desc, price, discount, was, img_name, img_url)
+                            print(desc, price, discount, was, img_name, img_url)
                             download_img(img_url, img_name)
+                            # csvwriter.writerow(['1', 2, '3'])
+                            csvwriter.writerow( \
+                                ['coles', id, name, brand, size, desc, aisle, category, sub_category, price, was, discount, img_url])
                     except:
                         pass
             
@@ -119,14 +151,21 @@ def test(url):
 
 # 
 def prep():
-    global sub_folder
+    global csv_path
     date_str = datetime.today().strftime('%Y-%m-%d')
     if not os.path.isdir(date_str):
         os.mkdir(date_str)
-    sub_folder =  date_str
+
+    csv_file = f"{date_str}.csv"
+    csv_path = os.path.join(date_str, csv_file)
+    if os.path.exists(csv_path):
+        os.remove(csv_path)
 
 def download_img(url, name):
-    file_path = os.path.join(sub_folder, name)
+    # Do not need to download img files any more
+    return 
+
+    file_path = os.path.join(date_str, name)
     if os.path.exists(file_path):
         return
     
@@ -139,7 +178,7 @@ def download_img(url, name):
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")    
 
-def one_page(url):
+def one_page(url, csvwriter):
     print(f"one_page START. url:{url}")
     try:
         response = requests.get(url, headers=headers)
@@ -153,6 +192,8 @@ def one_page(url):
             divs = page.find_all("section", attrs={
                 "data-testid": "product-tile"
             })
+
+            
             for div in divs:
                 discount_el = div.find("span", attrs={"class": "is-half-price"})
                 if not discount_el:
@@ -166,6 +207,13 @@ def one_page(url):
                 if not title_el:
                     continue
                 title = title_el.text.strip()
+                try:
+                    [name, size] = title.split("|")
+                    name = name.strip()
+                    size = size.strip()
+                except:
+                    name = title
+                    size = ''
 
                 price_el = div.find("span", attrs={"class": "price__value"})
                 if not price_el:
@@ -189,6 +237,9 @@ def one_page(url):
 
                 print(title, discount, price, was, img_name, img_src)
                 download_img(img_src, img_name)
+                # csvwriter.writerow( \
+                #     ['coles', '', name, title, 'size', 'desc', 'aisle', 'category', 'sub_category', price, was, discount, img_src])
+                        
 
             print()
             divs = page.find_all("div", attrs={
@@ -215,7 +266,7 @@ def one_page(url):
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
     
-def specials(page_num=1):
+def specials(page_num=1, csvwriter=None):
     print(f"Page {page_num}")
     print()
     url = domain + f"/on-special?sortBy=priceAscending&page={page_num}"
@@ -226,7 +277,7 @@ def specials(page_num=1):
 
             page_content = response.text
             response.close()
-            
+                
             # print(page_content)
             # html = etree.HTML(page_content)
             # divs = html.xpath('//*[@id="coles-targeting-browse-content-container"]/div[4]/div')
@@ -239,7 +290,7 @@ def specials(page_num=1):
             # print(max_page)
 
             for i in range(1, max_page + 1):
-                one_page(f"https://www.coles.com.au/on-special?page={i}")
+                one_page(f"https://www.coles.com.au/on-special?page={i}", csvwriter)
             
         else:
             print(f"Failed to retrieve data. Status Code: {response.status_code}")
@@ -251,7 +302,9 @@ if __name__ == "__main__":
     prep()
     # test("https://www.coles.com.au/on-special")
 
-    # asyncio.run(specials())
-    # specials()
+    with open(csv_path, 'a', newline='', encoding='utf-8') as f:
+        csvwriter = csv.writer(f)
+        # asyncio.run(specials())
+        specials(page_num=1, csvwriter=csvwriter)
 
-    promotions("https://www.coles.com.au/promotions/mortein?pid=ctatile(specials)_rbhome_br360_5009899515")
+        # promotions("https://www.coles.com.au/promotions/venus?pid=ctatile(specials)_procter-gamble_br360_5089972417", csvwriter)
