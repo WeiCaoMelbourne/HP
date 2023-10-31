@@ -17,6 +17,90 @@ headers = {
 # cmpy, prod_id, name, brand, size, desc, aisle, catetory, sub-category, price, was, desc, img_url
 csv_path = None
 
+def get_product_chunk(product_ids, csvwriter):
+    data = {
+        "productIds": ",".join(product_ids),
+        "filters": {},
+        "storeId": "0584"   # TODO hardcoded now
+    }
+
+    PRODUCTS_URL = "https://www.coles.com.au/api/products"
+    response = requests.post(PRODUCTS_URL, headers=headers, data=data)
+    # print(response.status_code)
+    if response.status_code == 200:
+        # print(response.json())
+        product_json = response.json()
+        response.close()
+
+        product_results = product_json['results']
+        # print(product_results)
+        for product in product_results:
+            # print(product)
+            
+            try:
+                id = product['id']
+                price = product['pricing']['now']
+                try:
+                    was = product['pricing']['was']
+                except:
+                    was = ''
+
+                try:
+                    size = product['size']
+                except:
+                    size = ''
+                
+                try:
+                    aisle = product['onlineHeirs']['aisle']
+                except:
+                    aisle = ''
+
+                try:
+                    category = product['onlineHeirs']['category']
+                except:
+                    category = ''
+
+                try:
+                    sub_category = product['onlineHeirs']['subCategory']
+                except:
+                    sub_category = ''
+                
+                try:
+                    discount = product['pricing']['savePercent']
+                except:
+                    discount = (price / was) * 100
+
+                # print(id, price, was, discount)
+                if discount <= 50:
+                    brand = product['brand']
+                    name = product['name']
+                    size = product['size']
+                    desc = brand + " " + name + " | " + size
+                    img = product['imageUris'][0]['uri']
+                    img_url = f"https://productimages.coles.com.au/productimages{img}?w=200"
+                    img_name = img_url.split("?")[0].split("/")[-1]
+
+                    print(desc, price, discount, was, img_name, img_url)
+                    download_img(img_url, img_name)
+                    # csvwriter.writerow(['1', 2, '3'])
+                    csvwriter.writerow( \
+                        ['coles', id, name, brand, size, desc, aisle, category, sub_category, price, was, discount, img_url])
+            except:
+                pass
+    
+    # print()
+    else:
+        print(f"Failed to retrieve data. Status Code: {response.status_code}")
+
+
+# for all the products, get 100 for each call
+def get_products(product_ids, csvwriter):
+    print(product_ids)
+    CHUNK_COUNT = 100
+    chunks = [product_ids[x: x + CHUNK_COUNT] for x in range(0, len(product_ids), CHUNK_COUNT)]
+    for chunk in chunks:
+        get_product_chunk(chunk, csvwriter)
+
 # In specials, when it is div and class is product__title_area, then it is a promoption
 # For promoptions, it uses 2 requests:
 #   1. https://www.coles.com.au/api/bff/products/categories?storeId=0584
@@ -27,7 +111,7 @@ csv_path = None
 #       TODO: where productIds come from
 #       the productIds probabally directly from the url www.coles.com.au/promotions/mortein?pid=ctatile(specials)_rbhome_br360_5009899515
 #       its source code has a "products":["3573557","4448029","3849115"...] 
-def promotions(url, csvwriter):
+def promotions(url, product_ids):
     print(f"promotions START. storeId:{url}")
 
     # catetory_url = f"https://www.coles.com.au/api/bff/products/categories?storeId={storeId}"
@@ -66,32 +150,12 @@ def promotions(url, csvwriter):
                     # print(product)
                     
                     try:
-                        id = product['id']
+                        id = str(product['id'])
                         price = product['pricing']['now']
                         try:
                             was = product['pricing']['was']
                         except:
                             was = ''
-
-                        try:
-                            size = product['size']
-                        except:
-                            size = ''
-                        
-                        try:
-                            aisle = product['onlineHeirs']['aisle']
-                        except:
-                            aisle = ''
-
-                        try:
-                            category = product['onlineHeirs']['category']
-                        except:
-                            category = ''
-
-                        try:
-                            sub_category = product['onlineHeirs']['subCategory']
-                        except:
-                            sub_category = ''
                         
                         try:
                             discount = product['pricing']['savePercent']
@@ -100,19 +164,20 @@ def promotions(url, csvwriter):
 
                         # print(id, price, was, discount)
                         if discount <= 50:
-                            brand = product['brand']
-                            name = product['name']
-                            size = product['size']
-                            desc = brand + " " + name + " | " + size
-                            img = product['imageUris'][0]['uri']
-                            img_url = f"https://productimages.coles.com.au/productimages{img}?w=200"
-                            img_name = img_url.split("?")[0].split("/")[-1]
+                            product_ids.append(id)
+                            # brand = product['brand']
+                            # name = product['name']
+                            # size = product['size']
+                            # desc = brand + " " + name + " | " + size
+                            # img = product['imageUris'][0]['uri']
+                            # img_url = f"https://productimages.coles.com.au/productimages{img}?w=200"
+                            # img_name = img_url.split("?")[0].split("/")[-1]
 
-                            print(desc, price, discount, was, img_name, img_url)
-                            download_img(img_url, img_name)
+                            # print(desc, price, discount, was, img_name, img_url)
+                            # download_img(img_url, img_name)
                             # csvwriter.writerow(['1', 2, '3'])
-                            csvwriter.writerow( \
-                                ['coles', id, name, brand, size, desc, aisle, category, sub_category, price, was, discount, img_url])
+                            # csvwriter.writerow( \
+                            #     ['coles', id, name, brand, size, desc, aisle, category, sub_category, price, was, discount, img_url])
                     except:
                         pass
             
@@ -137,7 +202,7 @@ def get_pages(page):
             max_page = page_num
 
     # return max_page
-    return 1    # TODO TEST ONLY
+    return 2    # TODO TEST ONLY
 
 def test(url):
     response = requests.get(url, headers=headers)
@@ -176,9 +241,15 @@ def download_img(url, name):
                 file.write(response.content) 
             response.close()
     except requests.exceptions.RequestException as e:
-        print(f"Request failed: {e}")    
+        print(f"Request failed: {e}")  
 
-def one_page(url, csvwriter):
+# For all coles product, we can use this endpoint:
+# https://www.coles.com.au/api/products POST
+# {"productIds":"332383","storeId":"","filters":{}}
+# when storeId is empty, it gives general price. 
+# So now logic is: loop through each page, find half-price items, add it to a 
+# list, then for all of them, cal 
+def one_page(url, product_ids):
     print(f"one_page START. url:{url}")
     try:
         response = requests.get(url, headers=headers)
@@ -193,7 +264,6 @@ def one_page(url, csvwriter):
                 "data-testid": "product-tile"
             })
 
-            
             for div in divs:
                 discount_el = div.find("span", attrs={"class": "is-half-price"})
                 if not discount_el:
@@ -202,41 +272,54 @@ def one_page(url, csvwriter):
                 # if price != '1/2':  # Only need 1/2
                 #     continue
 
-                # it is a half-price presentation, get product title
                 title_el = div.find("h2", attrs={"class": "product__title"})
                 if not title_el:
                     continue
                 title = title_el.text.strip()
-                try:
-                    [name, size] = title.split("|")
-                    name = name.strip()
-                    size = size.strip()
-                except:
-                    name = title
-                    size = ''
 
-                price_el = div.find("span", attrs={"class": "price__value"})
-                if not price_el:
-                    continue
-                price = price_el.text.strip()
+                # it is a half-price presentation, get product title
+                prod_link = div.find("a", attrs={"class": "product__link"})
+                if prod_link:
+                    link = prod_link.get("href").strip()
+                    try:
+                        prod_id = link.split("-")[-1]
+                        product_ids.append(prod_id)
+                    except:
+                        print(f"Cannot find product ID of product {title}")
 
-                was_el = div.find("span", attrs={"class": "price__was"})
-                if not was_el:
-                    continue
-                was = was_el.text.strip().split("$")[1].strip()
+                # if not title_el:
+                #     continue
+                # title = title_el.text.strip()
+                # try:
+                #     [name, size] = title.split("|")
+                #     name = name.strip()
+                #     size = size.strip()
+                # except:
+                #     name = title
+                #     size = ''
 
-                img_el = div.find("img", attrs={
-                    "data-testid": "product-image",
-                    "loading":"lazy"
-                    })
-                img_src = ""
-                img_name = ""
-                if img_el:
-                    img_src = img_el.get("src")
-                    img_name = img_src.split("?")[0].split("/")[-1]
+                # price_el = div.find("span", attrs={"class": "price__value"})
+                # if not price_el:
+                #     continue
+                # price = price_el.text.strip()
 
-                print(title, discount, price, was, img_name, img_src)
-                download_img(img_src, img_name)
+                # was_el = div.find("span", attrs={"class": "price__was"})
+                # if not was_el:
+                #     continue
+                # was = was_el.text.strip().split("$")[1].strip()
+
+                # img_el = div.find("img", attrs={
+                #     "data-testid": "product-image",
+                #     "loading":"lazy"
+                #     })
+                # img_src = ""
+                # img_name = ""
+                # if img_el:
+                #     img_src = img_el.get("src")
+                #     img_name = img_src.split("?")[0].split("/")[-1]
+
+                # print(title, discount, price, was, img_name, img_src)
+                # download_img(img_src, img_name)
                 # csvwriter.writerow( \
                 #     ['coles', '', name, title, 'size', 'desc', 'aisle', 'category', 'sub_category', price, was, discount, img_src])
                         
@@ -253,23 +336,17 @@ def one_page(url, csvwriter):
                     if link_el:
                         link = link_el.get("href").strip()
                         # print(link)
-                        promotions(domain + link)
-
-            # response.encoding = 'utf-8'
-            # print(response.text)
-
-            # with open("coles.html", "w", encoding='utf-8') as file:
-            #     file.write(response.text)
+                        promotions(domain + link, product_ids)
         else:
             print(f"Failed to retrieve data. Status Code: {response.status_code}")
 
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
     
-def specials(page_num=1, csvwriter=None):
-    print(f"Page {page_num}")
+def specials(csvwriter=None):
+    print(f"specials START")
     print()
-    url = domain + f"/on-special?sortBy=priceAscending&page={page_num}"
+    url = domain + f"/on-special"
 
     try:
         response = requests.get(url, headers=headers)
@@ -289,8 +366,11 @@ def specials(page_num=1, csvwriter=None):
             max_page = get_pages(page)
             # print(max_page)
 
+            product_ids = []
             for i in range(1, max_page + 1):
-                one_page(f"https://www.coles.com.au/on-special?page={i}", csvwriter)
+                one_page(f"https://www.coles.com.au/on-special?page={i}", product_ids)
+            # print(product_ids)
+            get_products(product_ids, csvwriter)
             
         else:
             print(f"Failed to retrieve data. Status Code: {response.status_code}")
@@ -305,6 +385,6 @@ if __name__ == "__main__":
     with open(csv_path, 'a', newline='', encoding='utf-8') as f:
         csvwriter = csv.writer(f)
         # asyncio.run(specials())
-        specials(page_num=1, csvwriter=csvwriter)
+        specials(csvwriter=csvwriter)
 
         # promotions("https://www.coles.com.au/promotions/venus?pid=ctatile(specials)_procter-gamble_br360_5089972417", csvwriter)
