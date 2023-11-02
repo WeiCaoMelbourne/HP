@@ -223,7 +223,7 @@ def review_n_download(start_page=1):
 
 if __name__ == "__main__":
     # articals_download()
-    review_n_download(start_page=1)
-    # artical_download("https://sis001.com/forum/thread-11445305-1-1.html")
+    # review_n_download(start_page=1)
+    artical_download("https://sis001.com/forum/viewthread.php?tid=3582792&extra=&page=1")
     # print(check_thanks("https://sis001.com/forum/thread-11320608-1-1.html", 1))
     

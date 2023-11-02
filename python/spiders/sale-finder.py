@@ -16,14 +16,46 @@ domain = "https://salefinder.com.au"
 
 # date_str = None
 
+# Read all post code from postcodes.txt, and get corresponding post code id of salefinder
+def get_all_postcodeid():
+    postcode_ids = {}
+
+    i = 1
+    with open("postcodes.txt", 'r') as input_file, open("postcode_ids.txt", "w", encoding='utf-8') as output_file:
+        for line in input_file:
+            postcode = line.strip()
+            print(postcode)
+            url = f"https://salefinder.com.au/ajax/locationsearch?query={postcode}"
+    
+            response = requests.get(url, headers=headers)
+
+            # Sample: ({"Id":"5583","postcode":"3178","displayName":"ROWVILLE","suggestions":[{"data":"5583","value":"ROWVILLE, 3178"}]})
+            page_content = response.text
+            response.close()
+
+            try:
+                postcode_json = json.loads(page_content.strip(")").strip("("))
+                postcodeid = postcode_json['Id']
+                postcode_ids[postcode] = postcodeid
+                output_file.write(postcodeid + '\n')
+            except:
+                pass
+
+            i += 1
+
+            # if i > 30:
+            #     break
+
+    print(postcode_ids)
+
 # csv format
 # cmpy, prod_id, name, brand, size, desc, aisle, catetory, sub-category, price, was, desc, img_url
 
-def one_catalogue(url, csvwriter):
+def one_catalogue(url, csvwriter, retailer):
     print(f"one_catalogue START. url:{url}")
-    one_page(url, csvwriter)
+    one_page(url, csvwriter, retailer)
     
-def one_page(url, csvwriter):
+def one_page(url, csvwriter, retailer):
     print(f"one_page START. url:{url}")
     try:
         response = requests.get(url, headers=headers)
@@ -68,7 +100,7 @@ def one_page(url, csvwriter):
                 if 'ml' in temp[-1]:
                     size = temp[-1]
 
-                line = common.product_list(cmpy='Woolworths', prod_id=prod_id, name=name,
+                line = common.product_list(cmpy=retailer['name'], prod_id=prod_id, name=name,
                     brand=brand, size=size, desc=full_desc, aisle=aisle, catetory=catetory,
                     sub_category=sub_category, price=price, was='', discount='1/2', img_url=img)
                 # print(line)
@@ -82,7 +114,7 @@ def one_page(url, csvwriter):
                 pages = div.text.strip()
                 if "Next" in pages:
                     page_url = div.get("href").strip()
-                    one_page(domain + page_url, csvwriter=csvwriter)
+                    one_page(domain + page_url, csvwriter=csvwriter, retailer=retailer)
 
             # print(page_content)
             # with open("ww.html", "w", encoding='utf-8') as file:
@@ -111,7 +143,7 @@ def one_page(url, csvwriter):
 #   it can get webpage of catalogus, 
 # 3. https://salefinder.com.au/woolworths-catalogue/weekly-specials-catalogue-vic/52476/list 
 #   it contains a procusts. 52476 comes from 2 
-def specials(csvwriter=None):
+def specials(csvwriter, retailer):
     print(f"specials START")
     print()
     url = "https://salefinder.com.au/ajax/locationsearch?query=3178"
@@ -130,7 +162,7 @@ def specials(csvwriter=None):
             # print(postcodeid)
 
             # 2
-            url = 'https://salefinder.com.au/Woolworths-catalogue'
+            url = f"https://salefinder.com.au/{retailer['catalogue']}"
             cookie_header = headers.copy()
             cookie_header['Cookie'] = f"postcodeId={postcodeid}"
             
@@ -154,7 +186,7 @@ def specials(csvwriter=None):
                 a = a.rsplit("/", 1)[0]
 
                 # 3
-                one_catalogue(domain + a + "/list", csvwriter)
+                one_catalogue(domain + a + "/list", csvwriter, retailer)
         else:
             print(f"Failed to retrieve data. Status Code: {response.status_code}")
 
@@ -163,12 +195,30 @@ def specials(csvwriter=None):
 
 
 if __name__ == "__main__":
-    common.prep()
-    # test("https://www.coles.com.au/on-special")
+    get_all_postcodeid()
     
-    with open(common.csv_path, 'a', newline='', encoding='utf-8') as f:
-        csvwriter = csv.writer(f)
-        # asyncio.run(specials())
-        specials(csvwriter=csvwriter)
 
-        # promotions("https://www.coles.com.au/promotions/venus?pid=ctatile(specials)_procter-gamble_br360_5089972417", csvwriter)
+    # common.prep()
+    # # test("https://www.coles.com.au/on-special")
+
+    # retailers = []
+    # # retailers.append(
+    # #     {
+    # #         "name": "Woolworths",
+    # #         "catalogue": "Woolworths-catalogue"
+    # #     }
+    # # )
+    # retailers.append(
+    #     {
+    #         "name": "IGA",
+    #         "catalogue": "IGA-catalogue"
+    #     }
+    # )
+    
+    # with open(common.csv_path, 'a', newline='', encoding='utf-8') as f:
+    #     csvwriter = csv.writer(f)
+    #     # asyncio.run(specials())
+    #     for retailer in retailers:
+    #         specials(csvwriter=csvwriter, retailer=retailer)
+
+    #     # promotions("https://www.coles.com.au/promotions/venus?pid=ctatile(specials)_procter-gamble_br360_5089972417", csvwriter)
